@@ -1,6 +1,7 @@
 import pymongo as mg
 import pandas as pd
 
+
 client = mg.MongoClient(host="166.111.17.78", port=27017)
 database_min = client["Stock_MIN"]
 database_day = client["Stock_Day"]

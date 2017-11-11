@@ -4,14 +4,10 @@ import pickle
 import pandas as pd
 import numpy as np
 import os
-import pymongo as mg
 import json
 from load_data_new import load_day_data_from_wind
+from global_variables import *
 
-client = mg.MongoClient(host="166.111.17.78", port=27017)
-database_min_fq = client["Stock_MIN_FQ"]
-database_min    = client["Stock_MIN"]
-database_day    = client["Stock_Day"]
 
 def get_bar(data):
     if (data["Open"].iloc[0] / data["Open"].iloc[1] - 1.0) < 0.15:

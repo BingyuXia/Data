@@ -1,11 +1,7 @@
-import pymongo as mg
+# -*- coding:utf-8 -*-
 import pandas as pd
 import numpy as np
-
-client = mg.MongoClient(host="166.111.17.78", port=27017)
-database_min_fq = client["Stock_MIN_FQ"]
-database_min    = client["Stock_MIN"]
-database_day    = client["Stock_Day"]
+from global_variables import *
 
 def get_bar(data):
     if data["Open"].iloc[0] != 0.0:
@@ -98,7 +94,7 @@ def load_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
     end_year = int(end_date / 10000)
     cond = {"Stock": stock_name}
     cond["Date"] = {"$gte": start_date, "$lte": end_date}
-    show = {"_id": 0}
+    show = {"_id" : 0}
     dt = pd.DataFrame([])
     if len(factor_list) != 0:
         for f in factor_list:
@@ -112,6 +108,24 @@ def load_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
     dt = dt.set_index(np.arange(len(dt)))
     return dt
 
+def load_derive_factors(stock_name, start_date=None, end_date=None, factor_list=[]):
+    cond = {"Stock": stock_name}
+    if start_date != None:
+        cond["Date"] = {"$gte": start_date}
+        if end_date != None:
+            cond["Date"]["$lte"] = end_date
+    elif end_date != None:
+        cond["Date"] = {"$lte": end_date}
+
+    show = {"_id" : 0}
+    if len(factor_list) != 0:
+        from Factors.factor_list import  derive
+        for f in factor_list:
+            f_index = derive.index(f)
+            show[f_index] = 1
+    querry = database_day["DERIVE"].find(cond, show)
+    return pd.DataFrame(list(querry))
+
 
 def bar_generation(bar_type, stock_name, start_date, end_date):
     min_data = load_min_data(stock_name, start_date, end_date)
@@ -121,7 +135,10 @@ def bar_generation(bar_type, stock_name, start_date, end_date):
 
 if __name__ == "__main__":
     # load_open_cost("000001", 20070104, 932, )
-    mindata = load_min_data("600179", 20160101, 20160102, fq=True)
+    # mindata = load_min_data("600179", 20160101, 20160102, fq=True)
     # day = load_day_data("600179", 20160315, 20160316, col="fmin")
+
+    print("Start!")
+    print("End")
 
 

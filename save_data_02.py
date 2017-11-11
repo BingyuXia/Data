@@ -7,11 +7,8 @@ import os
 import pymongo as mg
 import json
 from load_data import load_day_data_from_wind
+from global_variables import *
 
-client = mg.MongoClient(host="166.111.17.78", port=27017)
-database_min_fq = client["Stock_MIN_FQ"]
-database_min    = client["Stock_MIN"]
-database_day    = client["Stock_Day"]
 
 def status_process(status):
     if status == "DR":
@@ -45,9 +42,18 @@ def insert_wd_day_market_data():
 def insert_derive_data():
     df_columes = np.arange(35)
     index_col = list(range(36))
-    index_col.remove(3)
+    index_col.remove(2)
     for year in range(2010, 2018):
-        dt = pd.read_csv("stock_market_derive_data_%d" %year, encoding="gbk", usecols=index_col, names=df_columes)
+        print(year)
+        if year != 2016:
+            dt = pd.read_csv("stock_market_derive_data_%d.csv" %year, encoding="gbk", usecols=index_col, names=df_columes)
+        else:
+            for j in ["01","02"]:
+                dt = pd.read_csv("stock_market_derive_data_%d_%s.csv" % (year, j), encoding="gbk", usecols=index_col,
+                                 names=df_columes)
+                dt = dt.sort_values(by = 1)
+        database_day["DERIVE"].insert_many(json.loads((dt.to_json(orient="records"))))
+    print("OK!")
 
 def insert_industry_members_info():
     index_col = [0, 1, 2, 3]
@@ -61,4 +67,5 @@ if __name__ == "__main__":
     import os
     os.chdir("G:\\stock_data")
     # insert_wd_day_market_data()
-    insert_industry_members_info()
+    # insert_industry_members_info()
+    insert_derive_data()
