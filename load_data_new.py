@@ -3,6 +3,27 @@ import pandas as pd
 import numpy as np
 from global_variables import *
 
+
+def load_day_data(stock_name, start_date=None, end_date=None, factor_list=[], col="wd"):
+    cond = get_date_cond(stock_name, start_date, end_date)
+
+    show = {"_id": 0}
+    if len(factor_list) != 0:
+        for f in factor_list:
+            show[f] = 1
+    if col == "wd":
+        querry = database_day["WIND_ALL"].find(cond, show)
+    elif col == "fmin":
+        querry = database_day["FMIN"].find(cond, show)
+    elif col == "wd_fq":
+        querry = database_day["WIND_FQ"].find(cond, show)
+
+    return pd.DataFrame(list(querry))
+
+def get_trading_date(start_date, end_date):
+    dt = load_day_data("000001", start_date, end_date, factor_list=["Date"], col="wd_fq"):
+    return dt.tolist()
+
 def get_bar(data):
     if data["Open"].iloc[0] != 0.0:
         open = data["Open"].iloc[0]
@@ -65,8 +86,7 @@ def load_close_cost(stock, date, volume, time=925., ratio=10.):
             break
     return (val_total, vol_total)
 
-
-def load_day_data(stock_name, start_date=None, end_date=None, factor_list=[], col="wd"):
+def get_date_cond(stock_name, start_date, end_date):
     cond = {"Stock": stock_name}
     if start_date != None:
         cond["Date"] = {"$gte": start_date}
@@ -74,19 +94,8 @@ def load_day_data(stock_name, start_date=None, end_date=None, factor_list=[], co
             cond["Date"]["$lte"] = end_date
     elif end_date != None:
         cond["Date"] = {"$lte": end_date}
+    return cond
 
-    show = {"_id": 0}
-    if len(factor_list) != 0:
-        for f in factor_list:
-            show[f] = 1
-    if col == "wd":
-        querry = database_day["WIND_ALL"].find(cond, show)
-    elif col == "fmin":
-        querry = database_day["FMIN"].find(cond, show)
-    elif col == "wd_fq":
-        querry = database_day["WIND_FQ"].find(cond, show)
-
-    return pd.DataFrame(list(querry))
 
 
 def load_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
@@ -102,6 +111,7 @@ def load_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
     for year in range(start_year, end_year + 1):
         if fq:
             querry = database_min_fq["Y"+str(year)].find(cond, show)
+
         else:
             querry = database_min["Y" + str(year)].find(cond, show)
         dt = pd.concat((dt, pd.DataFrame(list(querry))))
@@ -109,13 +119,7 @@ def load_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
     return dt
 
 def load_derive_factors(stock_name, start_date=None, end_date=None, factor_list=[]):
-    cond = {"Stock": stock_name}
-    if start_date != None:
-        cond["Date"] = {"$gte": start_date}
-        if end_date != None:
-            cond["Date"]["$lte"] = end_date
-    elif end_date != None:
-        cond["Date"] = {"$lte": end_date}
+    cond = get_date_cond(stock_name, start_date, end_date)
 
     show = {"_id" : 0}
     if len(factor_list) != 0:
@@ -126,12 +130,35 @@ def load_derive_factors(stock_name, start_date=None, end_date=None, factor_list=
     querry = database_day["DERIVE"].find(cond, show)
     return pd.DataFrame(list(querry))
 
-
-def bar_generation(bar_type, stock_name, start_date, end_date):
-    min_data = load_min_data(stock_name, start_date, end_date)
-
+def load_money_flow_factors():
+    pass
 
 
+def load_industry_mark(stock_name_list, start_date, end_date, industry_list):
+    from Factors.factor_list import industry
+
+    trading_date = get_trading_date(start_date, end_date)
+    shape = (len(stock_name_list), len(trading_date), len(industry_list))
+    df = np.zeros(shape=shape, dtype=int)  # (Stock, Date, Industry)
+    show = {"_id" : 0}
+    for i in industry_list:
+        if i not in industry:
+            print("%s is not in industry list" %i)
+            continue
+        i_index = industry.index(i)
+        index_list.append(i_index)
+    cond = {"Stock" : {"$in" : stock_name_list}, "Industry" : {"$in" : index_list}}
+    querry = database_day["INDUSTRY"].find(cond, show)
+    dt = pd.DataFrame(list(querry))
+    for ind in range(len(dt)):
+        stock_ind  = stock_name_list.index(dt.ix[ind]["Stock"])
+        indus_ind  = index_list.index(dt.ix[ind]["Industry"])
+        inday  = dt.ix[ind]["Date_in"]
+        outday = dt.ix[ind]["Date_out"]
+        in_index = trading_date.index(max(inday, start_date))
+        out_index = trading_date.index(min(outday, end_date))
+        df[stock_ind][in_index, out_index][indus_ind] = 1
+    return df
 
 if __name__ == "__main__":
     # load_open_cost("000001", 20070104, 932, )

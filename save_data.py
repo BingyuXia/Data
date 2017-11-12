@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import os
 import json
-from load_data_new import load_day_data_from_wind
+from load_data_new import load_day_data
 from global_variables import *
 
 
@@ -171,8 +171,14 @@ def insert_day_data():
             database_day["WIND"].insert_many(json.loads((df_insert.to_json(orient="records"))))
     return
 
+def insert_index_members():
+    with open("cyb20102", "rb") as file:
+        m = pickle.load(file)
+        print("OK!")
+    return
 if __name__ == "__main__":
     import os
-    os.chdir("../MinData20170907")
-    insert_day_data()
+    os.chdir("G://Index_member")
+    # insert_day_data()
     # insert_min_data(["000800"])
+    insert_index_members()

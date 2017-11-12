@@ -55,10 +55,32 @@ def insert_derive_data():
         database_day["DERIVE"].insert_many(json.loads((dt.to_json(orient="records"))))
     print("OK!")
 
+def insert_moneyflow_data():
+    df_columes = np.arange(97)
+    index_col = list(range(97))
+    for year in range(2010, 2018):
+        print(year)
+        if year != 2016:
+            dt = pd.read_csv("ashare_moneyflow_%d.csv" %year, encoding="gbk", usecols=index_col, names=df_columes)
+        else:
+            for j in ["01","02"]:
+                dt = pd.read_csv("stock_market_derive_data_%d_%s.csv" % (year, j), encoding="gbk", usecols=index_col,
+                                 names=df_columes)
+                dt = dt.sort_values(by = 1)
+        database_day["DERIVE"].insert_many(json.loads((dt.to_json(orient="records"))))
+    print("OK!")
+
 def insert_industry_members_info():
     index_col = [0, 1, 2, 3]
     df_columes = ["Industry", "Stock", "Date_in", "Date_out"]
     dt = pd.read_csv("industry_members.csv", encoding="gbk", usecols=index_col, names=df_columes)
+    dt["Stock"] = dt["Stock"].map(stock_name_process)
+    industry_list = dt["Industry"].sort_values().tolist()
+    with open("Factors/industry", "w") as file:
+        for i in industry_list:
+            file.write(str(i)+"\n")
+    dt["Industry"] = dt["Industry"].map(lambda x: industry_list.index(x))
+    database_day["INDUSTRY"].insert_many(json.loads((dt.to_json(orient="records"))))
     print("OK!")
 
 
@@ -67,5 +89,5 @@ if __name__ == "__main__":
     import os
     os.chdir("G:\\stock_data")
     # insert_wd_day_market_data()
-    # insert_industry_members_info()
-    insert_derive_data()
+    insert_industry_members_info()
+    # insert_derive_data()
