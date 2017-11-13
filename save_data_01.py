@@ -168,17 +168,17 @@ def insert_day_data():
             df_insert = pd.DataFrame(df_insert)
             df_insert["Stock"] = stock_name
             df_insert["Date"] = df_insert["Date"].apply(lambda x: int(x.strftime("%Y%m%d")))
-            database_day["WIND"].insert_many(json.loads((df_insert.to_json(orient="records"))))
+            database_day["WIND_FQ"].insert_many(json.loads((df_insert.to_json(orient="records"))))
     return
 
-def insert_index_members():
-    with open("cyb20102", "rb") as file:
-        m = pickle.load(file)
-        print("OK!")
+# def insert_index_members():
+#     with open("cyb20102", "rb") as file:
+#         m = pickle.load(file)
+#         print("OK!")
     return
 if __name__ == "__main__":
     import os
-    os.chdir("G://Index_member")
-    # insert_day_data()
+    os.chdir("G://daydata")
+    insert_day_data()
     # insert_min_data(["000800"])
-    insert_index_members()
+    # insert_index_members()
