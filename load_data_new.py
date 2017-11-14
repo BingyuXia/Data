@@ -24,7 +24,7 @@ def get_date_cond(stock_name, start_date, end_date, index=True):
     return cond
 
 
-def load_day_data(stock_name, start_date=None, end_date=None, factor_list=[], col="wd"):
+def get_day_data(stock_name, start_date=None, end_date=None, factor_list=[], col="wd"):
     cond = get_date_cond(stock_name, start_date, end_date)
 
     show = {"_id": 0}
@@ -48,7 +48,7 @@ def load_day_data(stock_name, start_date=None, end_date=None, factor_list=[], co
     dt = dt.sort_values(by="Date")
     return dt
 
-def load_index_data(index, start_date=None, end_date=None, factor_list=[]):
+def get_index_data(index, start_date=None, end_date=None, factor_list=[]):
     cond = get_date_cond(index, start_date, end_date)
 
     show = {"_id": 0}
@@ -65,7 +65,7 @@ def load_index_data(index, start_date=None, end_date=None, factor_list=[]):
     dt = dt.sort_values(by="Date")
     return dt
 
-def load_industry_data(index, start_date=None, end_date=None, factor_list=[]):
+def get_industry_data(index, start_date=None, end_date=None, factor_list=[]):
     cond = get_date_cond(index, start_date, end_date)
 
     show = {"_id": 0}
@@ -84,7 +84,7 @@ def load_industry_data(index, start_date=None, end_date=None, factor_list=[]):
 
 
 def get_trading_date(start_date, end_date):
-    dt = load_day_data("000001", start_date, end_date, factor_list=["Date"], col="wd_fq")
+    dt = get_day_data("000001", start_date, end_date, factor_list=["Date"], col="wd_fq")
     return dt.values.reshape(-1).tolist()
 
 def get_bar(data):
@@ -108,48 +108,101 @@ def get_bar(data):
     value  =  data["Value"].sum()
     return (open, high, low, close, volume, value)
 
-
-def load_open_cost(stock, date, value, time=925., ratio=10.):
+def load_min_data(stock_name, date, time, fq=True):
     year = str(date)[:-4]
-    dc = database_min[year]
-    feature_list = {"_id": 0, "Value": 1, "Volume": 1, "limit_mark": 1}
-    show = dc.find({"Date": date, "Stock": stock,
-                    "Time": {"$gte": time}}, feature_list)
-    dt = pd.DataFrame(list(show))
-    if dt["limit_mark"][0] == 0:
+    feature_list = {"_id": 0, "Value": 1, "Volume": 1, "limit_mark": 1, "Time" : 1}
+    cond = {"Date": date, "Stock": stock_name, "Time": {"$gte": time}}
+    if fq:
+        querry = database_min_fq["Y" + year].find(cond, feature_list)
+
+    else:
+        querry = database_min["Y" + year].find(cond, feature_list)
+    dt = pd.DataFrame(list(querry))
+    dt = dt.sort_values(by="Time")
+    dt.index = np.arange(len(dt))
+    return dt
+
+def load_open_cost(dt, value, type="V", ratio=10.):
+    if dt["limit_mark"].iloc[0] == 0:
         return (0., 0.)
     val_total = 0.
     vol_total = 0.
     for ind, val in enumerate(dt["Value"]):
         val_total += val / ratio
         vol_total += dt["Volume"][ind] / ratio
-        if val_total >= value:
-            break
+        if type == "V":
+            if val_total >= value:
+                delta = val_total - value
+                vol_total -= (delta / val * dt["Volume"][ind])
+                val_total = value
+                break
+        elif type == "T":
+            if ind == (value - 1):
+                break
+        else:
+            print("type Error!")
+            return
+
     return (val_total, vol_total)
 
 
-def load_close_cost(stock, date, volume, time=925., ratio=10.):
-    year = str(date)[:-4]
-    dc = database_min[year]
-    feature_list = {"_id": 0, "Value": 1, "Volume": 1, "limit_mark": 1}
-    show = dc.find({"Date": date, "Stock": stock,
-                    "Time": {"$gte": time}}, feature_list)
-    dt = pd.DataFrame(list(show))
-    if dt["limit_mark"][0] == 0:
+def load_close_cost(dt, volume, type="V", ratio=10.):
+    if dt["limit_mark"].iloc[0] == 0:
         return (0., 0.)
     val_total = 0.
     vol_total = 0.
     for ind, val in enumerate(dt["Value"]):
         vol_total += dt["Volume"][ind] / ratio
         val_total += val / ratio
-        if vol_total >= volume:
-            delta = vol_total - volume
-            val_total -= (val * delta / dt["Volume"][ind])
-            vol_total = volume
-            break
+        if type == "V":
+            if vol_total >= volume:
+                delta = vol_total - volume
+                val_total -= (val * delta / dt["Volume"][ind])
+                vol_total = volume
+                break
+        elif type == "T":
+            if ind == (volume - 1):
+                break
+        else:
+            print("type Error!")
+            return
+
     return (val_total, vol_total)
 
-def load_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
+def get_open_cost(stock_name, date, time, value, type="V", ratio=10.):
+    dt = load_min_data(stock_name, date, time)
+    return load_open_cost(dt, value, type=type, ratio=ratio)
+
+def get_close_cost(stock_name, date, time, volume, type="V", ratio=10.):
+    dt = load_min_data(stock_name, date, time)
+    return load_close_cost(dt, volume, type=type, ratio=ratio)
+
+def get_open_label(stock_name, date, value, type="V", ratio=10.):
+    back_bar = 0
+    dt = load_min_data(stock_name, date, time=1400.)
+    dt_low = dt["Low"].replace(0., 1000)
+    ind = np.argmin(dt_low)
+    dt = dt[ind - back_bar:]
+    return load_open_cost(dt, value, type=type, ratio=ratio)
+
+def get_close_win_label(stock_name, date, volume, type="V", ratio=10.):
+    back_bar = 0
+    dt = load_min_data(stock_name, date, time=925.)
+    dt_high = dt["High"].copy()
+    dt_high.iloc[0] = 0.
+    ind = np.argmax(dt_high)
+    dt = dt[ind - back_bar:]
+    return load_close_cost(dt, volume, type=type, ratio=ratio)
+
+def get_close_lose_label(stock_name, date, volume, type="V", ratio=10.):
+    back_bar = 0
+    dt = load_min_data(stock_name, date, time=925.)
+    dt_low = dt["Low"].replace(0., 1000)
+    ind = np.argmin(dt_low)
+    dt = dt[ind - back_bar:]
+    return load_close_cost(dt, volume, type=type, ratio=ratio)
+
+def get_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
     start_year = int(start_date / 10000)
     end_year = int(end_date / 10000)
     cond = {"Stock": stock_name}
@@ -166,10 +219,11 @@ def load_min_data(stock_name, start_date, end_date, factor_list=[], fq=True):
         else:
             querry = database_min["Y" + str(year)].find(cond, show)
         dt = pd.concat((dt, pd.DataFrame(list(querry))))
+    dt = dt.sort_values(by=["Date", "Time"])
     dt = dt.set_index(np.arange(len(dt)))
     return dt
 
-def load_derive_factors(stock_name, start_date=None, end_date=None, factor_list=[]):
+def get_derive_factors(stock_name, start_date=None, end_date=None, factor_list=[]):
     cond = get_date_cond(stock_name, start_date, end_date, index=False)
 
     show = {"_id" : 0}
@@ -190,7 +244,7 @@ def load_derive_factors(stock_name, start_date=None, end_date=None, factor_list=
     dt.columns = dt_columes
     return dt
 
-def load_money_flow_factors(stock_name, start_date=None, end_date=None, factor_list=[]):
+def get_money_flow_factors(stock_name, start_date=None, end_date=None, factor_list=[]):
     cond = get_date_cond(stock_name, start_date, end_date, index=False)
 
     show = {"_id" : 0}
@@ -211,7 +265,7 @@ def load_money_flow_factors(stock_name, start_date=None, end_date=None, factor_l
     dt.columns = dt_columes
     return dt
 
-def load_industry_mark(stock_name_list, start_date, end_date, industry_list):
+def get_industry_mark(stock_name_list, start_date, end_date, industry_list):
     trading_date = get_trading_date(start_date, end_date)
     shape = (len(stock_name_list), len(trading_date), len(industry_list))
     df = np.zeros(shape=shape, dtype=int)  # (Stock, Date, Industry)
@@ -243,21 +297,23 @@ def load_industry_mark(stock_name_list, start_date, end_date, industry_list):
 
 if __name__ == "__main__":
     # load_open_cost("000001", 20070104, 932, )
-    # mindata = load_min_data("600179", 20160101, 20160102, fq=True)
-    # dt = load_day_data("600179", 20160315, 20160316, col="wd")
+    # mindata = get_min_data("600179", 20120111, 20120113, fq=True)
+    # dt = load_min_data("600179", 20120111, 0925., fq=True)
+    dt = get_close_cost("600179", 20120111, 0925., 1000, type="V", ratio=10.)
+    # dt = get_day_data("600179", 20160315, 20160316, col="wd")
     # td = get_trading_date(20110301, 20110605)
 
     # factor_list = ["Stock", "Date", "S_VAL_PB_NEW", "S_VAL_PE_TTM", "S_VAL_PCF_OCF", "S_VAL_PCF_OCFTTM",
     #                     "S_VAL_PCF_NCF", "S_VAL_PCF_NCFTTM" ]
-    # dt = load_derive_factors("600179", 20160315, 20160316, factor_list=factor_list)
+    # dt = get_derive_factors("600179", 20160315, 20160316, factor_list=factor_list)
     #
     # factor_list = ["Stock", "Date", "BUY_VALUE_EXLARGE_ORDER", "BUY_VALUE_MED_ORDER", "SELL_VALUE_EXLARGE_ORDER", "BUY_VALUE_LARGE_ORDER",
     #                   "SELL_VALUE_LARGE_ORDER",]
-    # dt = load_money_flow_factors("600179", 20160315, 20160316,factor_list=factor_list)
-    # load_industry_mark(stock_name_list=["600179", "000001"], start_date=20130201, end_date=20130301,
+    # dt = get_money_flow_factors("600179", 20160315, 20160316,factor_list=factor_list)
+    # get_industry_mark(stock_name_list=["600179", "000001"], start_date=20130201, end_date=20130301,
     #                    industry_list=["399985.SZ", "000985.CSI"])
 
-    dt = load_industry_data("CI005178.WI", start_date=20150315, end_date=20150505,) #factor_list=["Stock", "Date", "preClose"])
+    # dt = get_industry_data("CI005178.WI", start_date=20150315, end_date=20150505,) #factor_list=["Stock", "Date", "preClose"])
     print("Start!")
     print("End")
 
