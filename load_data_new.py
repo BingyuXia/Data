@@ -169,11 +169,11 @@ def load_close_cost(dt, volume, type="V", ratio=10.):
 
     return (val_total, vol_total)
 
-def get_open_cost(stock_name, date, time, value, type="V", ratio=10.):
+def get_open_cost(stock_name, date, value, time=925., type="V", ratio=10.):
     dt = load_min_data(stock_name, date, time)
     return load_open_cost(dt, value, type=type, ratio=ratio)
 
-def get_close_cost(stock_name, date, time, volume, type="V", ratio=10.):
+def get_close_cost(stock_name, date, volume, time=925., type="V", ratio=10.):
     dt = load_min_data(stock_name, date, time)
     return load_close_cost(dt, volume, type=type, ratio=ratio)
 
@@ -292,14 +292,19 @@ def get_industry_mark(stock_name_list, start_date, end_date, industry_list):
         df[stock_ind, in_index: (out_index+1), indus_ind] = 1
     return df
 
+def get_industry_classified(stock_list, industry_list):
+    return
 
-
+def get_concept_classified(stock_list, concept_list):
+    return 
 
 if __name__ == "__main__":
     # load_open_cost("000001", 20070104, 932, )
-    # mindata = get_min_data("600179", 20120111, 20120113, fq=True)
+    mindata = get_min_data("600179", 20120111, 20120113, fq=True)
     # dt = load_min_data("600179", 20120111, 0925., fq=True)
-    dt = get_close_cost("600179", 20120111, 0925., 1000, type="V", ratio=10.)
+    # dt = get_close_cost("600179", 20120111, 0925., 1000, type="V", ratio=10.)
+    # dt = get_open_label("600179", "20120111", 100000,)
+
     # dt = get_day_data("600179", 20160315, 20160316, col="wd")
     # td = get_trading_date(20110301, 20110605)
 
